@@ -30,14 +30,11 @@ def home():
 @app.route("/agent", methods=["POST"])
 def ai_agent_router():
     d = request.get_json(silent=True)
-    if not d or "command" not in d:
-        # Fallback if frontend sends text_command instead
-        cmd_text = d.get("text_command") if d else None
-        if not cmd_text:
-            abort(400)
-        cmd = cmd_text.strip().lower()
-    else:
-        cmd = d["command"].strip().lower()
+    if not d or ("command" not in d and "text_command" not in d):
+        abort(400)
+    
+    cmd_raw = d.get("command") or d.get("text_command")
+    cmd = cmd_raw.strip().lower()
 
     if "youtube" in cmd:
         q = cmd
@@ -63,24 +60,34 @@ def ai_agent_router():
             target = f"https://www.youtube.com/results?search_query={enc}"
             msg = f"Searching YouTube for {q}"
 
-    elif any(k in cmd for k in ["gmail", "email", "mail"]):
+    elif any(k in cmd for k in ["gmail", "email", "mail", "message"]):
         to, body = "", ""
-        tm = re.search(r"to\s+([a-zA-Z0-9._%+\s]+)", cmd)
-        if tm:
-            c = tm.group(1).replace(" at ", "@").replace(" ", "")
+        
+        # Clean the string to separate recipient and body cleanly
+        clean_cmd = cmd
+        for prefix in ["send email to", "email to", "mail to", "gmail", "email", "mail"]:
+            if clean_cmd.startswith(prefix):
+                clean_cmd = clean_cmd.replace(prefix, "", 1).strip()
+
+        # Split on keywords where message body starts
+        parts = re.split(r"\b(type|write|saying|message|content)\b", clean_cmd)
+        recip_part = parts[0].strip()
+        
+        if len(parts) > 1:
+            body = parts[-1].strip()
+        
+        if recip_part:
+            c = recip_part.replace(" at ", "@").replace(" dot ", ".").replace(" ", "")
             to = c if "@" in c else f"{c}@gmail.com"
         else:
             to = "sharanbalaji2025@gmail.com"
             
-        bm = re.search(r"(?:type|write|message)\s+(.*)", cmd)
-        if bm:
-            body = bm.group(1).strip()
-        else:
+        if not body:
             body = "how was your day"
-            
+
         base = "https://mail.google.com/mail/u/0/?view=cm&fs=1"
         params = urllib.parse.urlencode({"to": to, "body": body})
-        target = f"{base}&{params}"
+        target = f"{base}&params={urllib.parse.quote(params)}" if "?" in base else f"{base}&{params}"
         msg = f"Drafting email to {to}"
     
     else:
