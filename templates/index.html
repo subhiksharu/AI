@@ -1,0 +1,355 @@
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+
+    <title>Voice Agent</title>
+
+
+    <style>
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+
+            margin: 0;
+
+            height: 100vh;
+
+            display: flex;
+
+            justify-content: center;
+
+            align-items: center;
+
+            font-family: Arial, sans-serif;
+
+            background: #000;
+
+            color: white;
+        }
+
+
+        .container {
+
+            text-align: center;
+
+            padding: 40px;
+
+            width: 400px;
+
+            border-radius: 25px;
+
+            background: #111;
+
+            box-shadow: 0 0 40px rgba(255,255,255,0.1);
+        }
+
+
+        h1 {
+
+            margin-bottom: 10px;
+        }
+
+
+        p {
+
+            color: #aaa;
+
+            margin-bottom: 35px;
+        }
+
+
+        #micButton {
+
+            width: 130px;
+
+            height: 130px;
+
+            border-radius: 50%;
+
+            border: none;
+
+            background: white;
+
+            color: black;
+
+            font-size: 50px;
+
+            cursor: pointer;
+
+            transition: 0.3s;
+        }
+
+
+        #micButton:hover {
+
+            transform: scale(1.08);
+        }
+
+
+        #micButton.listening {
+
+            background: red;
+
+            color: white;
+
+            animation: pulse 1s infinite;
+        }
+
+
+        @keyframes pulse {
+
+            0% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.1);
+            }
+
+            100% {
+                transform: scale(1);
+            }
+        }
+
+
+        #status {
+
+            margin-top: 30px;
+
+            color: #aaa;
+
+            min-height: 25px;
+        }
+
+
+        #command {
+
+            margin-top: 15px;
+
+            font-size: 20px;
+
+            font-weight: bold;
+        }
+
+    </style>
+
+</head>
+
+
+<body>
+
+
+<div class="container">
+
+    <h1>🎤 Voice Agent</h1>
+
+    <p>
+        Click the button and speak a command
+    </p>
+
+
+    <button id="micButton">
+
+        🎤
+
+    </button>
+
+
+    <div id="status">
+
+        Ready
+
+    </div>
+
+
+    <div id="command"></div>
+
+</div>
+
+
+
+<script>
+
+
+// --------------------------------
+// SPEECH RECOGNITION
+// --------------------------------
+
+const SpeechRecognition =
+    window.SpeechRecognition ||
+    window.webkitSpeechRecognition;
+
+
+const recognition =
+    new SpeechRecognition();
+
+
+recognition.lang = "en-US";
+
+recognition.continuous = false;
+
+recognition.interimResults = false;
+
+
+
+// --------------------------------
+// ELEMENTS
+// --------------------------------
+
+const micButton =
+    document.getElementById("micButton");
+
+const status =
+    document.getElementById("status");
+
+const commandDisplay =
+    document.getElementById("command");
+
+
+
+// --------------------------------
+// MICROPHONE BUTTON
+// --------------------------------
+
+micButton.addEventListener("click", () => {
+
+    recognition.start();
+
+    micButton.classList.add("listening");
+
+    status.innerText = "Listening...";
+
+    commandDisplay.innerText = "";
+
+});
+
+
+
+// --------------------------------
+// WHEN SPEECH IS RECEIVED
+// --------------------------------
+
+recognition.onresult = async (event) => {
+
+    const command =
+        event.results[0][0].transcript;
+
+
+    console.log("You said:", command);
+
+
+    commandDisplay.innerText =
+        `"${command}"`;
+
+
+    status.innerText =
+        "Thinking...";
+
+
+    // Send command to Flask
+
+    const response =
+        await fetch("/agent", {
+
+            method: "POST",
+
+            headers: {
+                "Content-Type":
+                    "application/json"
+            },
+
+            body: JSON.stringify({
+
+                command: command
+
+            })
+
+        });
+
+
+    const data =
+        await response.json();
+
+
+    // Display response
+
+    status.innerText =
+        data.message;
+
+
+    // Open website
+
+    if (data.success && data.url) {
+
+        window.open(
+            data.url,
+            "_blank"
+        );
+
+    }
+
+};
+
+
+
+// --------------------------------
+// SPEECH ENDED
+// --------------------------------
+
+recognition.onend = () => {
+
+    micButton.classList.remove("listening");
+
+};
+
+
+
+// --------------------------------
+// SPEECH ERROR
+// --------------------------------
+
+recognition.onerror = (event) => {
+
+    micButton.classList.remove("listening");
+
+    console.log(event.error);
+
+    if (event.error === "not-allowed") {
+
+        status.innerText =
+            "Microphone permission denied.";
+
+    }
+
+    else if (event.error === "no-speech") {
+
+        status.innerText =
+            "I didn't hear anything.";
+
+    }
+
+    else {
+
+        status.innerText =
+            "Speech recognition error.";
+
+    }
+
+};
+
+</script>
+
+</body>
+
+</html>
+```
