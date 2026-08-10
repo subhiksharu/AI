@@ -1,11 +1,8 @@
-import os, re, urllib.parse, urllib.request
-from flask import (
-    Flask,
-    abort,
-    jsonify,
-    render_template,
-    request
-)
+import os
+import re
+import urllib.parse
+import urllib.request
+from flask import Flask, abort, jsonify, render_template, request
 
 app = Flask(__name__)
 
@@ -13,10 +10,7 @@ def get_vid(q):
     try:
         enc = urllib.parse.quote(q)
         url = f"https://www.youtube.com/results?search_query={enc}"
-        req = urllib.request.Request(
-            url,
-            headers={"User-Agent": "Mozilla/5.0"}
-        )
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
         data = urllib.request.urlopen(req, timeout=5).read().decode()
         ids = re.findall(r"\"videoId\":\"([^\"]+)\"", data)
         return ids[0] if ids else None
@@ -53,7 +47,6 @@ def ai_agent_router():
         q = q.strip()
         vid = get_vid(q)
         if vid:
-            # Embedded format with autoplay & mute to bypass browser blocks
             target = f"https://www.youtube.com/embed/{vid}?autoplay=1&mute=1"
             msg = f"Playing {q}"
         else:
@@ -63,34 +56,28 @@ def ai_agent_router():
 
     elif any(k in cmd for k in ["gmail", "email", "mail", "message"]):
         to, body = "", ""
-        
         clean_cmd = re.sub(
             r'^(please\s+)?(open\s+)?(gmail|email|mail|message)\s*(to|send\s+to|update\s+to|and\s+update\s+to)?\s*',
             '',
             cmd
         ).strip()
-
         parts = re.split(r'\b(type|write|saying|message|content|with body)\b', clean_cmd)
         recip_part = parts[0].strip()
-        
         if len(parts) > 1:
             body = parts[-1].strip()
-        
         if recip_part:
             c = recip_part.replace(" at ", "@").replace(" dot ", ".").replace(" ", "")
             c = re.sub(r'[^a-zA-Z0-9@._%-]', '', c)
             to = c if "@" in c else f"{c}@gmail.com"
         else:
             to = "sharanbalaji2025@gmail.com"
-            
         if not body:
             body = "how was your day"
-
         base = "https://mail.google.com/mail/u/0/?view=cm&fs=1"
         params = urllib.parse.urlencode({"to": to, "body": body})
         target = f"{base}&{params}"
         msg = f"Drafting email to {to}"
-    
+
     else:
         enc = urllib.parse.quote_plus(cmd)
         target = f"https://www.google.com/search?q={enc}"
@@ -103,7 +90,4 @@ def ai_agent_router():
     })
 
 if __name__ == "__main__":
-    app.run(
-        host="0.0.0.0",
-        port=int(os.environ.get("PORT", 8000))
-    )
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8000)))
