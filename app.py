@@ -53,7 +53,8 @@ def ai_agent_router():
         q = q.strip()
         vid = get_vid(q)
         if vid:
-            target = f"https://www.youtube.com/watch?v={vid}&autoplay=1"
+            # Embedded format with autoplay & mute to bypass browser blocks
+            target = f"https://www.youtube.com/embed/{vid}?autoplay=1&mute=1"
             msg = f"Playing {q}"
         else:
             enc = urllib.parse.quote_plus(q)
@@ -63,24 +64,20 @@ def ai_agent_router():
     elif any(k in cmd for k in ["gmail", "email", "mail", "message"]):
         to, body = "", ""
         
-        # Strip out noisy conversational filler cleanly using regex sub
         clean_cmd = re.sub(
             r'^(please\s+)?(open\s+)?(gmail|email|mail|message)\s*(to|send\s+to|update\s+to|and\s+update\s+to)?\s*',
             '',
             cmd
         ).strip()
 
-        # Split into recipient and message body keywords
         parts = re.split(r'\b(type|write|saying|message|content|with body)\b', clean_cmd)
         recip_part = parts[0].strip()
         
         if len(parts) > 1:
             body = parts[-1].strip()
         
-        # Clean recipient string completely
         if recip_part:
             c = recip_part.replace(" at ", "@").replace(" dot ", ".").replace(" ", "")
-            # Remove any trailing junk text picked up by speech-to-text
             c = re.sub(r'[^a-zA-Z0-9@._%-]', '', c)
             to = c if "@" in c else f"{c}@gmail.com"
         else:
