@@ -34,6 +34,7 @@ def play_youtube(cmd):
     encoded = urllib.parse.quote(
         query
     )
+    # Adding the search_query parameter directly
     url = f"https://www.youtube.com/results?search_query={encoded}"
     return {
         "success": True,
