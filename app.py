@@ -74,15 +74,23 @@ def draft_email(cmd):
 
 def brain(command):
     cmd = command.lower().strip()
+    
+    if "youtube" in cmd and "play" in cmd:
+        sub = cmd.split("play", 1)[1]
+        return play_youtube(f"play {sub}")
+        
     if cmd.startswith("open"):
         site = cmd.replace(
             "open", "", 1
         ).strip()
         return open_site(site)
+        
     if cmd.startswith("play"):
         return play_youtube(cmd)
+        
     if cmd.startswith("email"):
         return draft_email(cmd)
+        
     return {
         "success": False,
         "message": "Command unknown",
