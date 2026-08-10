@@ -30,9 +30,14 @@ def home():
 @app.route("/agent", methods=["POST"])
 def ai_agent_router():
     d = request.get_json(silent=True)
-    if not d or "text_command" not in d:
-        abort(400)
-    cmd = d["text_command"].strip().lower()
+    if not d or "command" not in d:
+        # Fallback if frontend sends text_command instead
+        cmd_text = d.get("text_command") if d else None
+        if not cmd_text:
+            abort(400)
+        cmd = cmd_text.strip().lower()
+    else:
+        cmd = d["command"].strip().lower()
 
     if "youtube" in cmd:
         q = cmd
@@ -52,9 +57,11 @@ def ai_agent_router():
         vid = get_vid(q)
         if vid:
             target = f"https://www.youtube.com/watch?v={vid}&autoplay=1"
+            msg = f"Playing {q}"
         else:
             enc = urllib.parse.quote_plus(q)
             target = f"https://www.youtube.com/results?search_query={enc}"
+            msg = f"Searching YouTube for {q}"
 
     elif any(k in cmd for k in ["gmail", "email", "mail"]):
         to, body = "", ""
@@ -62,16 +69,30 @@ def ai_agent_router():
         if tm:
             c = tm.group(1).replace(" at ", "@").replace(" ", "")
             to = c if "@" in c else f"{c}@gmail.com"
+        else:
+            to = "sharanbalaji2025@gmail.com"
+            
         bm = re.search(r"(?:type|write|message)\s+(.*)", cmd)
         if bm:
             body = bm.group(1).strip()
-        target = f"https://mail.google.com/mail/u/0/?view=cm&fs=1&to={urllib.parse.quote(to)}&body={urllib.parse.quote(body)}"
+        else:
+            body = "how was your day"
+            
+        base = "https://mail.google.com/mail/u/0/?view=cm&fs=1"
+        params = urllib.parse.urlencode({"to": to, "body": body})
+        target = f"{base}&{params}"
+        msg = f"Drafting email to {to}"
     
     else:
         enc = urllib.parse.quote_plus(cmd)
         target = f"https://www.google.com/search?q={enc}"
+        msg = f"Searching Google for {cmd}"
 
-    return jsonify({"action": "open_tab", "url": target})
+    return jsonify({
+        "success": True,
+        "message": msg,
+        "url": target
+    })
 
 if __name__ == "__main__":
     app.run(
