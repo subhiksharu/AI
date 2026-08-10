@@ -63,32 +63,25 @@ def ai_agent_router():
     elif any(k in cmd for k in ["gmail", "email", "mail", "message"]):
         to, body = "", ""
         
-        # Remove trigger phrases completely
-        clean_cmd = cmd
-        noise = [
-            "open gmail update to",
-            "open gmail and mail",
-            "open gmail",
-            "send email to",
-            "email to",
-            "mail to",
-            "gmail",
-            "email",
-            "mail"
-        ]
-        for n in noise:
-            clean_cmd = clean_cmd.replace(n, "")
-        clean_cmd = clean_cmd.strip()
+        # Strip out noisy conversational filler cleanly using regex sub
+        clean_cmd = re.sub(
+            r'^(please\s+)?(open\s+)?(gmail|email|mail|message)\s*(to|send\s+to|update\s+to|and\s+update\s+to)?\s*',
+            '',
+            cmd
+        ).strip()
 
-        # Split into recipient and body using indicators
-        parts = re.split(r"\b(type|write|saying|message|content)\b", clean_cmd)
+        # Split into recipient and message body keywords
+        parts = re.split(r'\b(type|write|saying|message|content|with body)\b', clean_cmd)
         recip_part = parts[0].strip()
         
         if len(parts) > 1:
             body = parts[-1].strip()
         
+        # Clean recipient string completely
         if recip_part:
             c = recip_part.replace(" at ", "@").replace(" dot ", ".").replace(" ", "")
+            # Remove any trailing junk text picked up by speech-to-text
+            c = re.sub(r'[^a-zA-Z0-9@._%-]', '', c)
             to = c if "@" in c else f"{c}@gmail.com"
         else:
             to = "sharanbalaji2025@gmail.com"
