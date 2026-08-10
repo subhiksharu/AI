@@ -1,10 +1,11 @@
-import webbrowser
-import speech_recognition as sr
+from flask import Flask, render_template, request, jsonify
 
-# memory
-memory = {}
+app = Flask(__name__)
 
-# tools
+# ------------------------- 
+# WEBSITES
+# -------------------------
+
 SITES = {
     "google": "https://www.google.com",
     "openai": "https://www.openai.com",
@@ -12,69 +13,75 @@ SITES = {
     "youtube": "https://www.youtube.com"
 }
 
-# brain
-def open_site(site):
-    key = site.lower().strip()
-    if key in SITES:
-        webbrowser.open(SITES[key])
-        return f"Opening {key}"
-    return "I don't know that website"
 
+# -------------------------
+# AGENT BRAIN
+# -------------------------
 
 def brain(command):
+
     command = command.lower().strip()
+
     if command.startswith("open"):
-        site = command.replace("open", "").strip()
-        return open_site(site)
-    return "I don't understand your command"
+
+        site = command.replace("open", "", 1).strip()
+
+        if site in SITES:
+
+            return {
+                "success": True,
+                "message": f"Opening {site}",
+                "url": SITES[site]
+            }
+
+        return {
+            "success": False,
+            "message": "I don't know that website",
+            "url": None
+        }
+
+    return {
+        "success": False,
+        "message": "I don't understand your command",
+        "url": None
+    }
 
 
-# voice input
-def listen(recognizer, mic):
-    with mic as source:
-        recognizer.adjust_for_ambient_noise(source, duration=0.5)
-        print("Listening...")
-        try:
-            audio = recognizer.listen(source, timeout=5, phrase_time_limit=5)
-        except sr.WaitTimeoutError:
-            return ""
+# -------------------------
+# HOME PAGE
+# -------------------------
 
-    try:
-        text = recognizer.recognize_google(audio)
-        print("You said:", text)
-        return text
-    except sr.UnknownValueError:
-        print("agent: Sorry, I didn't catch that.")
-        return ""
-    except sr.RequestError as e:
-        print(f"agent: Speech service error: {e}")
-        return ""
+@app.route("/")
+def home():
+    return render_template("index.html")
 
 
-# input + response
-def main():
-    recognizer = sr.Recognizer()
-    mic = sr.Microphone()
+# -------------------------
+# AGENT API
+# -------------------------
 
-    print("Agent can open websites")
-    print("Try saying:")
-    print("  open gmail")
-    print("  open openai")
-    print("  open youtube")
-    print("Say 'exit' to quit.")
+@app.route("/agent", methods=["POST"])
+def agent():
 
-    while True:
-        user_input = listen(recognizer, mic)
-        if not user_input:
-            continue
+    data = request.get_json()
 
-        if user_input.lower() == "exit":
-            print("Agent: goodbye buddy")
-            break
+    command = data.get("command", "")
 
-        response = brain(user_input)
-        print("agent:", response)
+    print("User said:", command)
+
+    response = brain(command)
+
+    return jsonify(response)
 
 
-if _name_ == "_main_":
-    main()
+# -------------------------
+# RUN
+# -------------------------
+
+if __name__ == "__main__":
+
+    app.run(
+        host="0.0.0.0",
+        port=5000,
+        debug=True
+    )
