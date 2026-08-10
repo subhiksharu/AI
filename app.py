@@ -43,20 +43,27 @@ def play_youtube(cmd):
 
 def draft_email(cmd):
     parts = cmd.split(" ", 2)
-    recipient = (
+    raw_recipient = (
         parts[1]
         if len(parts) > 1
-        else "test@gmail.com"
+        else "sharanbalaji2025@gmail.com"
     )
-    subject = (
+    if "@" not in raw_recipient:
+        recipient = (
+            f"{raw_recipient}@gmail.com"
+        )
+    else:
+        recipient = raw_recipient
+
+    body = (
         parts[2]
         if len(parts) > 2
-        else "Hello"
+        else "how was your day"
     )
     base = "https://mail.google.com/mail/?view=cm&fs=1"
     params = urllib.parse.urlencode({
         "to": recipient,
-        "su": subject
+        "body": body
     })
     url = f"{base}&{params}"
     return {
@@ -67,19 +74,15 @@ def draft_email(cmd):
 
 def brain(command):
     cmd = command.lower().strip()
-    
     if cmd.startswith("open"):
         site = cmd.replace(
             "open", "", 1
         ).strip()
         return open_site(site)
-        
     if cmd.startswith("play"):
         return play_youtube(cmd)
-        
     if cmd.startswith("email"):
         return draft_email(cmd)
-        
     return {
         "success": False,
         "message": "Command unknown",
