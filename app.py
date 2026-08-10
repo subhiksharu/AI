@@ -63,13 +63,24 @@ def ai_agent_router():
     elif any(k in cmd for k in ["gmail", "email", "mail", "message"]):
         to, body = "", ""
         
-        # Clean the string to separate recipient and body cleanly
+        # Remove trigger phrases completely
         clean_cmd = cmd
-        for prefix in ["send email to", "email to", "mail to", "gmail", "email", "mail"]:
-            if clean_cmd.startswith(prefix):
-                clean_cmd = clean_cmd.replace(prefix, "", 1).strip()
+        noise = [
+            "open gmail update to",
+            "open gmail and mail",
+            "open gmail",
+            "send email to",
+            "email to",
+            "mail to",
+            "gmail",
+            "email",
+            "mail"
+        ]
+        for n in noise:
+            clean_cmd = clean_cmd.replace(n, "")
+        clean_cmd = clean_cmd.strip()
 
-        # Split on keywords where message body starts
+        # Split into recipient and body using indicators
         parts = re.split(r"\b(type|write|saying|message|content)\b", clean_cmd)
         recip_part = parts[0].strip()
         
@@ -87,7 +98,7 @@ def ai_agent_router():
 
         base = "https://mail.google.com/mail/u/0/?view=cm&fs=1"
         params = urllib.parse.urlencode({"to": to, "body": body})
-        target = f"{base}&params={urllib.parse.quote(params)}" if "?" in base else f"{base}&{params}"
+        target = f"{base}&{params}"
         msg = f"Drafting email to {to}"
     
     else:
