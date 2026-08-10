@@ -1,10 +1,12 @@
-from flask import Flask, render_template, request, jsonify
+from flask import (
+    Flask,
+    render_template,
+    request,
+    jsonify
+)
+import urllib.parse
 
 app = Flask(__name__)
-
-# ------------------------- 
-# WEBSITES
-# -------------------------
 
 SITES = {
     "google": "https://www.google.com",
@@ -12,73 +14,98 @@ SITES = {
     "youtube": "https://www.youtube.com"
 }
 
-
-# -------------------------
-# AGENT BRAIN
-# -------------------------
-
-def brain(command):
-
-    command = command.lower().strip()
-
-    if command.startswith("open"):
-
-        site = command.replace("open", "", 1).strip()
-
-        if site in SITES:
-
-            return {
-                "success": True,
-                "message": f"Opening {site}",
-                "url": SITES[site]
-            }
-
+def open_site(site):
+    if site in SITES:
         return {
-            "success": False,
-            "message": "I don't know that website",
-            "url": None
+            "success": True,
+            "message": f"Opening {site}",
+            "url": SITES[site]
         }
-
     return {
         "success": False,
-        "message": "I don't understand your command",
+        "message": "Unknown website",
         "url": None
     }
 
+def play_youtube(cmd):
+    query = cmd.replace(
+        "play", "", 1
+    ).strip()
+    encoded = urllib.parse.quote(
+        query
+    )
+    url = f"https://www.youtube.com/results?search_query={encoded}"
+    return {
+        "success": True,
+        "message": f"Playing {query}",
+        "url": url
+    }
 
-# -------------------------
-# HOME PAGE
-# -------------------------
+def draft_email(cmd):
+    parts = cmd.split(" ", 2)
+    recipient = (
+        parts[1]
+        if len(parts) > 1
+        else "test@gmail.com"
+    )
+    subject = (
+        parts[2]
+        if len(parts) > 2
+        else "Hello"
+    )
+    base = "https://mail.google.com/mail/?view=cm&fs=1"
+    params = urllib.parse.urlencode({
+        "to": recipient,
+        "su": subject
+    })
+    url = f"{base}&{params}"
+    return {
+        "success": True,
+        "message": f"Email to {recipient}",
+        "url": url
+    }
+
+def brain(command):
+    cmd = command.lower().strip()
+    
+    if cmd.startswith("open"):
+        site = cmd.replace(
+            "open", "", 1
+        ).strip()
+        return open_site(site)
+        
+    if cmd.startswith("play"):
+        return play_youtube(cmd)
+        
+    if cmd.startswith("email"):
+        return draft_email(cmd)
+        
+    return {
+        "success": False,
+        "message": "Command unknown",
+        "url": None
+    }
 
 @app.route("/")
 def home():
-    return render_template("index.html")
+    return render_template(
+        "index.html"
+    )
 
-
-# -------------------------
-# AGENT API
-# -------------------------
-
-@app.route("/agent", methods=["POST"])
+@app.route(
+    "/agent",
+    methods=["POST"]
+)
 def agent():
-
     data = request.get_json()
-
-    command = data.get("command", "")
-
+    command = data.get(
+        "command", ""
+    )
     print("User said:", command)
-
     response = brain(command)
-
     return jsonify(response)
 
-
-# -------------------------
-# RUN
-# -------------------------
-
 if __name__ == "__main__":
-
     app.run(
         host="0.0.0.0",
         port=5000,
