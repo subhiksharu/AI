@@ -8,7 +8,6 @@ app = Flask(__name__)
 
 SITES = {
     "google": "https://www.google.com",
-    "openai": "https://www.openai.com",
     "gmail": "https://mail.google.com/mail/u/0",
     "youtube": "https://www.youtube.com"
 }
