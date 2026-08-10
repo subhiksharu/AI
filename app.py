@@ -1,125 +1,80 @@
+import os, re, urllib.parse, urllib.request
 from flask import (
     Flask,
+    abort,
+    jsonify,
     render_template,
-    request,
-    jsonify
+    request
 )
-import urllib.parse
 
 app = Flask(__name__)
 
-SITES = {
-    "google": "https://www.google.com",
-    "gmail": "https://mail.google.com/mail/u/0",
-    "youtube": "https://www.youtube.com"
-}
-
-def open_site(site):
-    if site in SITES:
-        return {
-            "success": True,
-            "message": f"Opening {site}",
-            "url": SITES[site]
-        }
-    return {
-        "success": False,
-        "message": "Unknown website",
-        "url": None
-    }
-
-def play_youtube(cmd):
-    query = cmd.replace(
-        "play", "", 1
-    ).strip()
-    encoded = urllib.parse.quote(
-        query
-    )
-    # Adding the search_query parameter directly
-    url = f"https://www.youtube.com/results?search_query={encoded}"
-    return {
-        "success": True,
-        "message": f"Playing {query}",
-        "url": url
-    }
-
-def draft_email(cmd):
-    parts = cmd.split(" ", 2)
-    raw_recipient = (
-        parts[1]
-        if len(parts) > 1
-        else "sharanbalaji2025@gmail.com"
-    )
-    if "@" not in raw_recipient:
-        recipient = (
-            f"{raw_recipient}@gmail.com"
+def get_vid(q):
+    try:
+        enc = urllib.parse.quote(q)
+        url = f"https://www.youtube.com/results?search_query={enc}"
+        req = urllib.request.Request(
+            url,
+            headers={"User-Agent": "Mozilla/5.0"}
         )
-    else:
-        recipient = raw_recipient
+        data = urllib.request.urlopen(req, timeout=5).read().decode()
+        ids = re.findall(r"\"videoId\":\"([^\"]+)\"", data)
+        return ids[0] if ids else None
+    except Exception:
+        return None
 
-    body = (
-        parts[2]
-        if len(parts) > 2
-        else "how was your day"
-    )
-    base = "https://mail.google.com/mail/?view=cm&fs=1"
-    params = urllib.parse.urlencode({
-        "to": recipient,
-        "body": body
-    })
-    url = f"{base}&{params}"
-    return {
-        "success": True,
-        "message": f"Email to {recipient}",
-        "url": url
-    }
-
-def brain(command):
-    cmd = command.lower().strip()
-    
-    if "youtube" in cmd and "play" in cmd:
-        sub = cmd.split("play", 1)[1]
-        return play_youtube(f"play {sub}")
-        
-    if cmd.startswith("open"):
-        site = cmd.replace(
-            "open", "", 1
-        ).strip()
-        return open_site(site)
-        
-    if cmd.startswith("play"):
-        return play_youtube(cmd)
-        
-    if cmd.startswith("email"):
-        return draft_email(cmd)
-        
-    return {
-        "success": False,
-        "message": "Command unknown",
-        "url": None
-    }
-
-@app.route("/")
+@app.route("/", methods=["GET"])
 def home():
-    return render_template(
-        "index.html"
-    )
+    return render_template("index.html")
 
-@app.route(
-    "/agent",
-    methods=["POST"]
-)
-def agent():
-    data = request.get_json()
-    command = data.get(
-        "command", ""
-    )
-    print("User said:", command)
-    response = brain(command)
-    return jsonify(response)
+@app.route("/agent", methods=["POST"])
+def ai_agent_router():
+    d = request.get_json(silent=True)
+    if not d or "text_command" not in d:
+        abort(400)
+    cmd = d["text_command"].strip().lower()
+
+    if "youtube" in cmd:
+        q = cmd
+        patterns = [
+            "open youtube and search",
+            "open youtube and play",
+            "open youtube",
+            "search for",
+            "search",
+            "and play",
+            "play",
+            "on youtube"
+        ]
+        for p in patterns:
+            q = q.replace(p, "")
+        q = q.strip()
+        vid = get_vid(q)
+        if vid:
+            target = f"https://www.youtube.com/watch?v={vid}&autoplay=1"
+        else:
+            enc = urllib.parse.quote_plus(q)
+            target = f"https://www.youtube.com/results?search_query={enc}"
+
+    elif any(k in cmd for k in ["gmail", "email", "mail"]):
+        to, body = "", ""
+        tm = re.search(r"to\s+([a-zA-Z0-9._%+\s]+)", cmd)
+        if tm:
+            c = tm.group(1).replace(" at ", "@").replace(" ", "")
+            to = c if "@" in c else f"{c}@gmail.com"
+        bm = re.search(r"(?:type|write|message)\s+(.*)", cmd)
+        if bm:
+            body = bm.group(1).strip()
+        target = f"https://mail.google.com/mail/u/0/?view=cm&fs=1&to={urllib.parse.quote(to)}&body={urllib.parse.quote(body)}"
+    
+    else:
+        enc = urllib.parse.quote_plus(cmd)
+        target = f"https://www.google.com/search?q={enc}"
+
+    return jsonify({"action": "open_tab", "url": target})
 
 if __name__ == "__main__":
     app.run(
         host="0.0.0.0",
-        port=5000,
-        debug=True
+        port=int(os.environ.get("PORT", 8000))
     )
